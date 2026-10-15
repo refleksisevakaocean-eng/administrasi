@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Online</title>
+<style>
+    :root{
+        --purple-900:#3b0764; --purple-700:#5b21b6; --purple-600:#6d28d9; --purple-500:#7c3aed;
+        --purple-100:#ede9fe; --ink:#1e1b2e; --muted:#6b6280; --paper:#faf9fc;
+        --ok:#059669; --err:#dc2626;
+    }
+    *{box-sizing:border-box}
+    body{
+        margin:0; font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+        background:var(--paper); color:var(--ink); min-height:100vh;
+    }
+    .hero{
+        background:linear-gradient(160deg,var(--purple-900) 0%,var(--purple-700) 55%,var(--purple-500) 100%);
+        color:white; padding:36px 20px 56px; text-align:center; position:relative; overflow:hidden;
+    }
+    .hero::after{
+        content:''; position:absolute; inset:0;
+        background:radial-gradient(circle at 80% -10%, rgba(255,255,255,.15), transparent 45%);
+    }
+    .hero h1{ font-size:1.5rem; font-weight:800; margin:8px 0 4px; position:relative }
+    .hero p{ font-size:.85rem; opacity:.8; margin:0; position:relative }
+    .hero .badge{
+        display:inline-block; background:rgba(255,255,255,.15); border:1px solid rgba(255,255,255,.25);
+        border-radius:999px; padding:5px 14px; font-size:.7rem; font-weight:700; letter-spacing:.05em;
+        text-transform:uppercase; position:relative;
+    }
+    .card{
+        max-width:460px; margin:-32px auto 40px; background:white; border-radius:22px;
+        box-shadow:0 20px 50px -20px rgba(91,33,182,.35); padding:26px 22px; position:relative;
+    }
+    .field{ margin-bottom:16px }
+    .field label{ display:block; font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:6px }
+    .field input, .field select, .field textarea{
+        width:100%; padding:12px 14px; border:1.5px solid #e6e1ef; border-radius:12px;
+        font-size:.9rem; font-family:inherit; color:var(--ink); background:#fff; transition:border-color .15s;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus{ outline:none; border-color:var(--purple-500) }
+    .field textarea{ resize:vertical; min-height:64px }
+    .row2{ display:flex; gap:12px }
+    .row2 .field{ flex:1 }
+    .fmt-hint{ font-size:.7rem; color:var(--purple-600); font-weight:700; margin-top:5px }
+    /* Honeypot — disembunyikan lewat CSS (bukan type=hidden) supaya bot yang cek computed style pun tetap kena */
+    .hp-field{ position:absolute; left:-9999px; top:-9999px; opacity:0; height:0; overflow:hidden }
+    .submit-btn{
+        width:100%; background:linear-gradient(135deg,var(--purple-600),var(--purple-500)); color:white;
+        border:none; border-radius:14px; padding:15px; font-size:.95rem; font-weight:800; cursor:pointer;
+        margin-top:6px; transition:transform .1s, box-shadow .15s; box-shadow:0 10px 25px -10px rgba(124,58,237,.6);
+    }
+    .submit-btn:active{ transform:scale(.98) }
+    .submit-btn:disabled{ opacity:.6; cursor:not-allowed }
+    .msg{ font-size:.82rem; font-weight:600; margin-top:14px; padding:12px 14px; border-radius:10px; display:none }
+    .msg.err{ background:#fef2f2; color:var(--err); display:block }
+    .msg.ok{ background:#ecfdf5; color:var(--ok); display:block; text-align:center }
+    .success-code{
+        font-size:1.5rem; font-weight:900; letter-spacing:.05em; color:var(--purple-700);
+        margin:6px 0; font-family:'Courier New',monospace;
+    }
+    .footnote{ text-align:center; font-size:.72rem; color:var(--muted); margin-top:18px; line-height:1.6 }
+</style>
+</head>
+<body>
+
+    <div class="hero">
+        <span class="badge">Booking Online</span>
+        <h1>Booking Jadwal Perawatan</h1>
+        <p>Isi form di bawah, tim kami akan konfirmasi lewat WhatsApp</p>
+    </div>
+
+    <div class="card">
+        <form id="booking-form">
+            <div class="field">
+                <label for="f-nama">Nama Lengkap</label>
+                <input type="text" id="f-nama" name="customer_nama" placeholder="Nama kamu" required minlength="2">
+            </div>
+
+            <div class="field">
+                <label for="f-telp">Nomor WhatsApp</label>
+                <input type="tel" id="f-telp" name="customer_telp" placeholder="08xxxxxxxxxx" required inputmode="tel" autocomplete="tel">
+            </div>
+
+            <div class="field">
+                <label for="f-layanan">Pilih Layanan</label>
+                <select id="f-layanan" name="layanan_id" required>
+                    <option value="" disabled selected>Memuat daftar layanan…</option>
+                </select>
+            </div>
+
+            <div class="row2">
+                <div class="field">
+                    <label for="f-tanggal">Tanggal</label>
+                    <input type="date" id="f-tanggal" name="tanggal" required oninput="updateFmtHint()">
+                </div>
+                <div class="field">
+                    <label for="f-jam">Jam</label>
+                    <input type="time" id="f-jam" name="jam" required oninput="updateFmtHint()">
+                </div>
+            </div>
+            <div class="fmt-hint" id="fmt-hint"></div>
+
+            <div class="field">
+                <label for="f-catatan">Catatan (opsional)</label>
+                <textarea id="f-catatan" name="catatan" placeholder="Permintaan khusus, dll."></textarea>
+            </div>
+
+            <!-- Honeypot anti-bot — JANGAN dihapus, JANGAN diisi (manusia tidak akan melihat field ini) -->
+            <div class="field hp-field">
+                <label for="f-website">Website</label>
+                <input type="text" id="f-website" name="website" tabindex="-1" autocomplete="off">
+            </div>
+
+            <button type="submit" class="submit-btn" id="submit-btn">Kirim Booking</button>
+            <div class="msg" id="form-msg"></div>
+        </form>
+
+        <div id="success-view" style="display:none;text-align:center">
+            <div style="font-size:2.2rem">✅</div>
+            <div style="font-weight:800;font-size:1.05rem;margin-top:6px">Booking Terkirim!</div>
+            <div style="font-size:.82rem;color:var(--muted);margin-top:4px">Simpan kode ini sebagai bukti booking kamu</div>
+            <div class="success-code" id="success-code"></div>
+            <div style="font-size:.8rem;color:var(--muted);margin-top:10px">Tim kami akan hubungi kamu lewat WhatsApp untuk konfirmasi & info pembayaran DP.</div>
+        </div>
+    </div>
+
+    <div class="footnote">
+        🔒 Data kamu terhubung aman lewat server — nomor & jadwal booking tidak tersimpan atau bisa diakses langsung dari halaman ini.
+    </div>
+
+<script>
+    // URL Edge Function (hasil deploy: supabase functions deploy submit-booking --no-verify-jwt)
+    const API_URL = 'https://wzoywahkfkhhjwywzbtc.supabase.co/functions/v1/submit-booking';
+
+    const form = document.getElementById('booking-form');
+    const msgEl = document.getElementById('form-msg');
+    const submitBtn = document.getElementById('submit-btn');
+    const layananSelect = document.getElementById('f-layanan');
+
+    // Tanggal minimum = hari ini (tidak bisa booking tanggal yang sudah lewat)
+    const MAX_DAYS_AHEAD = 180; // samakan dengan batas di Edge Function
+    function localDateStr(d) {
+        const p = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    }
+    const _today = new Date();
+    const _max = new Date(); _max.setDate(_max.getDate() + MAX_DAYS_AHEAD);
+    document.getElementById('f-tanggal').min = localDateStr(_today);
+    document.getElementById('f-tanggal').max = localDateStr(_max);
+
+    function esc(str) {
+        return String(str ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function updateFmtHint() {
+        const d = document.getElementById('f-tanggal').value;
+        const t = document.getElementById('f-jam').value;
+        const hint = document.getElementById('fmt-hint');
+        if (!d) { hint.textContent = ''; return; }
+        const [y, m, day] = d.split('-');
+        hint.textContent = `📅 ${parseInt(day)}/${parseInt(m)}/${y}` + (t ? ` · 🕐 ${t} (24 jam)` : '');
+    }
+
+    // Muat daftar layanan dari Edge Function saat halaman dibuka
+    async function loadLayanan() {
+        try {
+            const res = await fetch(API_URL, { method: 'GET' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Gagal memuat layanan');
+
+            layananSelect.innerHTML = '<option value="" disabled selected>— Pilih layanan —</option>' +
+                data.layanan.map(s =>
+                    `<option value="${esc(s.id)}">${esc(s.nama)} · Rp ${Number(s.harga).toLocaleString('id-ID')} · ${s.durasi_menit || 0} menit</option>`
+                ).join('');
+        } catch (e) {
+            layananSelect.innerHTML = '<option value="" disabled selected>Gagal memuat, refresh halaman</option>';
+        }
+    }
+    loadLayanan();
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msgEl.className = 'msg';
+        msgEl.textContent = '';
+
+        const payload = {
+            customer_nama:  document.getElementById('f-nama').value.trim(),
+            customer_telp:  document.getElementById('f-telp').value.trim(),
+            layanan_id:     layananSelect.value,
+            tanggal:        document.getElementById('f-tanggal').value,
+            jam:            document.getElementById('f-jam').value,
+            catatan:        document.getElementById('f-catatan').value.trim(),
+            website:        document.getElementById('f-website').value, // honeypot
+        };
+
+        if (new Date(`${payload.tanggal}T${payload.jam}`) < new Date()) {
+            msgEl.className = 'msg err';
+            msgEl.textContent = '⚠️ Waktu booking sudah lewat, pilih jam lain.';
+            return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Mengirim…';
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || 'Gagal mengirim booking');
+
+            // Tampilkan halaman sukses + kode booking
+            form.style.display = 'none';
+            document.getElementById('success-view').style.display = 'block';
+            document.getElementById('success-code').textContent = data.code;
+
+        } catch (err) {
+            msgEl.className = 'msg err';
+            msgEl.textContent = '⚠️ ' + (err instanceof TypeError ? 'Tidak bisa terhubung ke server. Periksa koneksi internet lalu coba lagi.' : err.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Kirim Booking';
+        }
+    });
+</script>
+</body>
+</html>
